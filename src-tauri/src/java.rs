@@ -191,6 +191,16 @@ fn adoptium_url(major: u32) -> String {
     format!("{base}/v3/binary/latest/{major}/ga/{os}/{arch}/jre/hotspot/normal/eclipse")
 }
 
+/// The published SHA-256 of the Java archive, or `None` when it can't be looked up.
+async fn adoptium_checksum(ctx: &Ctx, major: u32) -> Option<String> {
+    let os = if cfg!(windows) { "windows" } else if cfg!(target_os = "macos") { "mac" } else { "linux" };
+    let arch = if cfg!(target_arch = "aarch64") { "aarch64" } else { "x64" };
+    let base = std::env::var("VOX_ADOPTIUM_URL").unwrap_or_else(|_| "https://api.adoptium.net".into());
+    let url = format!("{base}/v3/assets/latest/{major}/hotspot?architecture={arch}&image_type=jre&os={os}&vendor=eclipse");
+    let v: serde_json::Value = ctx.http.get(url).send().await.ok()?.json().await.ok()?;
+    v.as_array()?.first()?["binary"]["package"]["checksum"].as_str().map(String::from)
+}
+
 /// Downloads an Eclipse Temurin JRE for the requested major version into the runtimes folder.
 pub async fn install_java(ctx: &Ctx, major: u32, report: &Report) -> Result<JavaInstall> {
     let stage = format!("Downloading Java {major}");
@@ -201,6 +211,14 @@ pub async fn install_java(ctx: &Ctx, major: u32, report: &Report) -> Result<Java
     let is_zip = cfg!(windows);
     let archive = tmp.join(if is_zip { "java.zip" } else { "java.tar.gz" });
     download(&ctx.http, &adoptium_url(major), &archive, &Expect::default()).await?;
+    // Adoptium publishes a SHA-256 for each download; refuse an archive that doesn't match it.
+    if let Some(want) = adoptium_checksum(ctx, major).await {
+        let got = sha256_file(&archive).await?;
+        if !got.eq_ignore_ascii_case(&want) {
+            let _ = tokio::fs::remove_dir_all(&tmp).await;
+            bail!("The downloaded Java file did not match its published checksum, so it was not used.");
+        }
+    }
 
     report(&format!("Extracting Java {major}"), 0, 1);
     let out = tmp.join("out");

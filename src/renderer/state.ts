@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultMemoryMb: 4096, defaultMinMemoryMb: 512, javaPath: '', autoDownloadJava: true, jvmArgs: '', defaultWidth: 0, defaultHeight: 0,
   defaultFullscreen: false, wrapper: '', preLaunch: '', postExit: '', envVars: '', launcherAction: 'keep', showConsoleOnLaunch: true, checkLauncherUpdates: true, updateRepo: '', notifications: true,
   consoleMaxLines: 2000, showSnapshots: false, checkModUpdates: true, downloadThreads: 16, proxyUrl: '', discordEnabled: true,
-  discordShowInstance: true, discordShowTime: true, discordShowServer: false, theme: 'voxel', layout: 'cover', accent: '', uiScale: 100, compact: false, reduceMotion: false, warnModConflicts: true, customTheme: {},
+  discordShowInstance: true, discordShowTime: true, discordShowServer: false, theme: 'voxel', layout: 'cover', accent: '', uiScale: 100, compact: false, reduceMotion: false, warnModConflicts: true, allowLaunchCommands: true, customTheme: {},
 };
 
 export const state = {

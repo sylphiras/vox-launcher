@@ -155,6 +155,8 @@ pub struct Settings {
     pub reduce_motion: bool,
     /// Warn about duplicate / mismatched / missing mods before launching.
     pub warn_mod_conflicts: bool,
+    /// Allow the wrapper / before-launch / after-exit commands to run.
+    pub allow_launch_commands: bool,
     /// Colours and shape of the "custom" theme. Keys: bg side panel text muted accent border radius.
     pub custom_theme: std::collections::BTreeMap<String, String>,
 }
@@ -195,6 +197,7 @@ impl Default for Settings {
             compact: false,
             reduce_motion: false,
             warn_mod_conflicts: true,
+            allow_launch_commands: true,
             custom_theme: std::collections::BTreeMap::new(),
         }
     }

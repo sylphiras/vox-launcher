@@ -163,6 +163,23 @@ pub async fn file_is_good(path: &Path, expect: &Expect, verify: bool) -> bool {
     true
 }
 
+pub async fn sha256_file(path: &Path) -> Result<String> {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || -> Result<String> {
+        use sha2::{Digest, Sha256};
+        use std::io::Read;
+        let mut f = std::fs::File::open(&path)?;
+        let mut h = Sha256::new();
+        let mut buf = vec![0u8; 1 << 16];
+        loop {
+            let n = f.read(&mut buf)?;
+            if n == 0 { break; }
+            h.update(&buf[..n]);
+        }
+        Ok(hex::encode(h.finalize()))
+    }).await?
+}
+
 pub async fn sha1_file(path: &Path) -> Result<String> {
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || -> Result<String> {

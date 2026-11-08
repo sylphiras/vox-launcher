@@ -7,7 +7,6 @@
 <p align="center">
   A fast, good-looking launcher for Minecraft: Java Edition.<br>
   Manage as many instances as you like, install mods and modpacks in a click, and get playing quickly.
-  Code signing is provided by SignPath.io, certificate by SignPath Foundation
 </p>
 
 <p align="center">
@@ -96,6 +95,14 @@ Everything lives in `%APPDATA%\Vox Launcher\data`. Open it from **Settings → D
 
 **Portable copy:** download `Vox-Launcher-Portable.zip` from a release and unzip it anywhere. Because the `portable.txt` file sits next to the program, everything is kept in a `data` folder beside it, so you can carry the whole folder on a USB stick. Portable copies don't update themselves; download the new zip instead.
 
+## Privacy
+
+Vox Launcher has no accounts, analytics or tracking, and it sends nothing to its developer. It only talks to the services you use through it: Mojang and Microsoft (game files and sign-in), Modrinth (mods), GitHub (launcher updates and the Vox Client mod) and, if you switch it on, Discord (your status stays on your own PC). Your sign-in token is kept in the Windows credential store, and everything else stays in the data folder on your PC.
+
+## Code signing
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
 ## Help and feedback
 
 Found a bug or have an idea? [Open an issue](https://github.com/sylphiras/vox-launcher/issues). If the game crashed, use **Copy report** in the crash helper and paste it into your issue.
@@ -106,4 +113,4 @@ See [DEVELOPING.md](DEVELOPING.md).
 
 ---
 
-<sub>Copyright © 2026 sylphiras. All rights reserved, see [LICENSE](LICENSE). Vox Launcher is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.</sub>
+<sub>Copyright © 2026 sylphiras. Licensed under the [GNU General Public License v3.0](LICENSE). Vox Launcher is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.</sub>

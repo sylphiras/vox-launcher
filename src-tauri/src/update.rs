@@ -6,6 +6,23 @@ use serde::Serialize;
 use serde_json::Value;
 use std::path::PathBuf;
 
+/// Public half of the key that signs every release installer (the private half lives only in the
+/// GitHub secret `UPDATE_SIGNING_KEY`). An update is run only if its `.sig` file verifies against this.
+pub const UPDATE_PUBLIC_KEY: [u8; 32] = [
+    0xe8, 0xd0, 0x2f, 0x85, 0xcd, 0x56, 0x10, 0xfb, 0xd5, 0x10, 0xa0, 0xf8, 0x0c, 0x2a, 0x2b, 0xe7,
+    0x8a, 0xc0, 0x61, 0x10, 0xc5, 0x0e, 0xbc, 0xc1, 0x17, 0xce, 0x16, 0x95, 0xd1, 0x41, 0x7f, 0xce,
+];
+
+/// Checks a base64 Ed25519 signature over `data` against `key`.
+pub fn verify_with(key: &[u8; 32], data: &[u8], sig_b64: &str) -> Result<()> {
+    use base64::Engine;
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let sig = base64::engine::general_purpose::STANDARD.decode(sig_b64.trim()).map_err(|_| anyhow::anyhow!("The update's signature file is not valid."))?;
+    let sig = Signature::from_slice(&sig).map_err(|_| anyhow::anyhow!("The update's signature file is not valid."))?;
+    let key = VerifyingKey::from_bytes(key).map_err(|_| anyhow::anyhow!("The built-in update key is invalid."))?;
+    key.verify(data, &sig).map_err(|_| anyhow::anyhow!("The update's signature does not match, so it was not run."))
+}
+
 fn api_base() -> String {
     std::env::var("VOX_UPDATE_URL").unwrap_or_else(|_| "https://api.github.com".to_string())
 }
@@ -103,12 +120,39 @@ pub async fn download_installer(ctx: &Ctx, repo: &str, url: &str, name: &str, si
     let dest = std::env::temp_dir().join("vox-update").join(&name);
     let _ = tokio::fs::remove_file(&dest).await;
     download(&ctx.http, url, &dest, &Expect { sha1: None, size }).await?;
+    // The installer only runs if it was signed with the Vox release key.
+    let checked: Result<()> = async {
+        let r = ctx.http.get(format!("{url}.sig")).send().await.map_err(|_| anyhow::anyhow!("The update has no signature file, so it was not run."))?;
+        if !r.status().is_success() {
+            bail!("The update has no signature file, so it was not run.");
+        }
+        let sig = r.text().await?;
+        let data = tokio::fs::read(&dest).await?;
+        verify_with(&UPDATE_PUBLIC_KEY, &data, &sig)
+    }.await;
+    if let Err(e) = checked {
+        let _ = tokio::fs::remove_file(&dest).await;
+        return Err(e);
+    }
     Ok(dest)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signatures_are_checked() {
+        use base64::Engine;
+        use ed25519_dalek::{Signer, SigningKey};
+        let sk = SigningKey::from_bytes(&[7u8; 32]);
+        let key = sk.verifying_key().to_bytes();
+        let sig = base64::engine::general_purpose::STANDARD.encode(sk.sign(b"installer bytes").to_bytes());
+        assert!(verify_with(&key, b"installer bytes", &sig).is_ok());
+        assert!(verify_with(&key, b"tampered bytes", &sig).is_err());
+        assert!(verify_with(&key, b"installer bytes", "not base64!").is_err());
+        assert!(verify_with(&UPDATE_PUBLIC_KEY, b"installer bytes", &sig).is_err(), "a different key must not verify");
+    }
 
     #[test]
     fn versions_compare_numerically() {

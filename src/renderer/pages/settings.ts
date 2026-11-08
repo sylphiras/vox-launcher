@@ -74,6 +74,7 @@ function general(): HTMLElement[] {
     card('Updates and content', null,
       row('Check for mod updates', 'Show an update count on each instance’s Mods tab when it opens.', flag('checkModUpdates')),
       row('Warn about mod problems', 'Before launching, check for duplicate mods, mods made for another loader or Minecraft version, and missing required mods.', flag('warnModConflicts')),
+      row('Allow custom commands', 'Lets wrapper, before-launch and after-exit commands run. They run on your PC with your permissions, so only use commands you trust. Turn off to ignore them.', flag('allowLaunchCommands')),
       row('Show snapshots', 'Include Minecraft snapshot versions when creating an instance.', flag('showSnapshots')),
       row('Parallel downloads', 'Connections used when downloading game files (1–32).', num('downloadThreads', 1, 32))),
     card('When the game starts', null,

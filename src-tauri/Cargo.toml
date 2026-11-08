@@ -3,7 +3,7 @@ name = "vox-launcher"
 version = "0.3.1"
 description = "Vox Launcher: a fast Minecraft: Java Edition launcher"
 authors = ["sylphiras"]
-license-file = "../LICENSE"
+license = "GPL-3.0-only"
 repository = "https://github.com/sylphiras/vox-launcher"
 publish = false
 edition = "2021"
@@ -39,6 +39,8 @@ open = "5"
 regex = "1"
 url = "2"
 discord-rich-presence = "1.1.0"
+ed25519-dalek = "2"
+sha2 = "0.10"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

@@ -79,6 +79,7 @@ export interface Settings {
   compact: boolean;
   reduceMotion: boolean;
   warnModConflicts: boolean;
+  allowLaunchCommands: boolean;
   customTheme: Record<string, string>;
 }
 

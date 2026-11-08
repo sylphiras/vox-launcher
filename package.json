@@ -3,7 +3,7 @@
   "version": "0.3.1",
   "private": true,
   "description": "Vox Launcher: a fast Minecraft: Java Edition launcher (Rust + Tauri)",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "GPL-3.0-only",
   "author": "sylphiras",
   "repository": "github:sylphiras/vox-launcher",
   "scripts": {

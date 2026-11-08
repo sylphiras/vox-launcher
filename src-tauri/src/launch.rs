@@ -256,7 +256,8 @@ pub async fn launch_instance_with(ctx: &Ctx, id: &str, hooks: LaunchHooks, join:
     (hooks.log)(format!("Launching: {} {}", java.path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(), printable));
 
     // Wrapper command (for example "gamemoderun" or "mangohud"): it starts first and receives Java as its arguments.
-    let wrapper = split_args(if inst.wrapper.trim().is_empty() { &settings.wrapper } else { &inst.wrapper });
+    let allow_cmds = settings.allow_launch_commands;
+    let wrapper = split_args(if !allow_cmds { "" } else if inst.wrapper.trim().is_empty() { &settings.wrapper } else { &inst.wrapper });
     let (program, full_args): (std::path::PathBuf, Vec<String>) = match wrapper.split_first() {
         Some((w, rest)) => {
             let mut a: Vec<String> = rest.to_vec();
@@ -277,7 +278,9 @@ pub async fn launch_instance_with(ctx: &Ctx, id: &str, hooks: LaunchHooks, join:
     ];
 
     let pre = if inst.pre_launch.trim().is_empty() { settings.pre_launch.clone() } else { inst.pre_launch.clone() };
-    if !pre.trim().is_empty() {
+    if !allow_cmds && !pre.trim().is_empty() {
+        (hooks.log)("Skipped the before-launch command because custom commands are turned off in Settings.".to_string());
+    } else if !pre.trim().is_empty() {
         (hooks.log)(format!("Running pre-launch command: {pre}"));
         let code = run_shell(&pre, &game_directory, &inst_env, &env).await?;
         if code != Some(0) {
@@ -318,7 +321,7 @@ pub async fn launch_instance_with(ctx: &Ctx, id: &str, hooks: LaunchHooks, join:
     let kill = Arc::new(tokio::sync::Notify::new());
     let kill2 = kill.clone();
     let on_exit = hooks.on_exit.clone();
-    let post = if inst.post_exit.trim().is_empty() { settings.post_exit.clone() } else { inst.post_exit.clone() };
+    let post = if !allow_cmds { String::new() } else if inst.post_exit.trim().is_empty() { settings.post_exit.clone() } else { inst.post_exit.clone() };
     let (ctx2, id2, log2) = (ctx.clone(), id.to_string(), hooks.log.clone());
     let started = std::time::Instant::now();
     let (post_dir, post_inst_env, post_env) = (game_directory.clone(), inst_env.clone(), env.clone());

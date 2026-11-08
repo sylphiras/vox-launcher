@@ -406,7 +406,7 @@ function settingsTab(inst: InstanceConfig): HTMLElement {
   });
   wrap.appendChild(joinCard);
 
-  wrap.appendChild(card('Custom commands', 'Variables available: INST_ID, INST_NAME, INST_DIR, INST_MC_DIR, INST_MC_VER, INST_LOADER.',
+  wrap.appendChild(card('Custom commands', 'These run on your PC with your permissions, so only use commands you wrote or trust. Variables: INST_ID, INST_NAME, INST_DIR, INST_MC_DIR, INST_MC_VER, INST_LOADER.',
     field('Wrapper command', text(inst.wrapper, 'wrapper', 'e.g. gamemoderun'), 'Placed in front of the java command.'),
     field('Before launch', text(inst.preLaunch, 'preLaunch', 'Runs before the game starts'), 'A failing command stops the launch.'),
     field('After exit', text(inst.postExit, 'postExit', 'Runs after the game closes')),
