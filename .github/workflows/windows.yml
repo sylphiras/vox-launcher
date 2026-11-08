@@ -15,6 +15,12 @@ jobs:
     env:
       # The launcher looks for updates and the Vox Client mod in this repository's releases.
       VOX_UPDATE_REPO: ${{ github.repository }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      SIGN_ENDPOINT: ${{ secrets.SIGN_ENDPOINT }}
+      SIGN_ACCOUNT: ${{ secrets.SIGN_ACCOUNT }}
+      SIGN_PROFILE: ${{ secrets.SIGN_PROFILE }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +35,15 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Stamp the version from the release tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          sed -i "0,/^version = \".*\"/s//version = \"$V\"/" src-tauri/Cargo.toml
+          sed -i "0,/\"version\": \".*\"/s//\"version\": \"$V\"/" src-tauri/tauri.conf.json package.json
+          grep -n 'version' src-tauri/Cargo.toml src-tauri/tauri.conf.json | head -4
+
       - name: Install JS dependencies
         run: npm ci
 
@@ -38,18 +53,100 @@ jobs:
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib
 
+      - name: Turn on code signing (only when the Azure secrets are set)
+        if: env.AZURE_CLIENT_ID != ''
+        shell: pwsh
+        run: |
+          cargo install trusted-signing-cli --locked
+          $conf = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $sign = @{ cmd = "trusted-signing-cli"; args = @("-e", $env:SIGN_ENDPOINT, "-a", $env:SIGN_ACCOUNT, "-c", $env:SIGN_PROFILE, "-d", "Vox Launcher", "%1") }
+          $conf.bundle.windows | Add-Member -NotePropertyName signCommand -NotePropertyValue $sign -Force
+          $conf | ConvertTo-Json -Depth 20 | Set-Content src-tauri/tauri.conf.json
+
       - name: Build the installer
-        run: npx tauri build --bundles nsis
+        run: npx tauri build --bundles nsis,msi
+
+      - name: Sign the update files and write checksums
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if (-not $env:UPDATE_SIGNING_KEY) {
+            if ("${{ github.ref }}".StartsWith("refs/tags/v")) { throw "Add the UPDATE_SIGNING_KEY secret before releasing." }
+            Write-Host "No UPDATE_SIGNING_KEY, skipping (not a release)."; exit 0
+          }
+          $files = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe, src-tauri/target/release/bundle/msi/*.msi | ForEach-Object { $_.FullName })
+          node scripts/sign-release.js @files
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
           name: Vox-Launcher-Windows-Installer
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.sig
+            src-tauri/target/release/bundle/msi/*.sig
+            SHA256SUMS.txt
+          if-no-files-found: warn
+
+      - name: Make the portable zip
+        shell: pwsh
+        run: |
+          $dir = "Vox-Launcher-Portable"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item "src-tauri/target/release/vox-launcher.exe" "$dir/Vox Launcher.exe"
+          Set-Content "$dir/portable.txt" "This file turns on portable mode. Vox Launcher keeps everything (instances, accounts, settings) in the 'data' folder next to the program, so you can copy this whole folder to a USB stick. Delete this file to go back to the normal location."
+          Compress-Archive -Path $dir -DestinationPath "Vox-Launcher-Portable.zip" -Force
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vox-Launcher-Portable
+          path: Vox-Launcher-Portable.zip
           if-no-files-found: error
 
       - name: Attach to release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.sig
+            src-tauri/target/release/bundle/msi/*.sig
+            SHA256SUMS.txt
+            Vox-Launcher-Portable.zip
+
+  client-mod:
+    # The optional Vox Client mod (Fabric). Built separately so a problem here never blocks the installer.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.12"
+
+      - name: Build Vox Client
+        working-directory: vox-client-mod
+        run: gradle build --no-daemon
+
+      - name: Upload mod
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vox-Client-Mod
+          path: vox-client-mod/build/libs/vox-client-*+mc*[0-9].jar
+          if-no-files-found: error
+
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vox-client-mod/build/libs/vox-client-*+mc*[0-9].jar
